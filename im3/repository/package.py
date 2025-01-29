@@ -5,7 +5,7 @@ from . import profile
 class Package:
     def __init__(self, pvr_code, keyword, discount_price, normal_price, package_name, token_id):
         self.api_service_instance = api_service.IMIOAuthHelper("Android", "82.5.1", token_id)
-        self.phone_number = "62" + profile.Profile(token_id).get_profile()
+        self.phone_number = "62" + profile.Profile(token_id).get_profile()['data']['mob']
         self.pvr_code = pvr_code.replace("$MSISDN$", self.phone_number)
         self.keyword = keyword
         self.discount_price = discount_price
