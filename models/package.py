@@ -1,6 +1,9 @@
+from dataclasses import dataclass
+
 from database import db
 
 
+@dataclass
 class Package(db.Model):
     __tablename__ = "packages"
     id = db.Column(db.Integer, primary_key=True)
@@ -14,3 +17,19 @@ class Package(db.Model):
 
     def __repr__(self):
         return f"<Package {self.package_name}>"
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "pvr_code": self.pvr_code,
+            "keyword": self.keyword,
+            "discount_price": self.discount_price,
+            "normal_price": self.normal_price,
+            "package_name": self.package_name,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at
+        }
+
+    @staticmethod
+    def get_all():
+        return Package.query.all()
