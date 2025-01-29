@@ -1,0 +1,17 @@
+flask~=3.0.3
+flask-wtf
+flask-sqlalchemy
+flask-jwt-extended
+flask-migrate
+psycopg2-binary
+celery[redis]~=5.4.0
+python-dotenv~=1.0.1
+flower
+werkzeug~=3.0.3
+requests~=2.32.3
+urllib3~=1.26.19
+WTForms~=3.2.1
+alembic~=1.14.1
+SQLAlchemy~=2.0.31
+qrcodeT~=1.0.4
+rich~=13.9.4

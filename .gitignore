@@ -1,0 +1,6 @@
+session/*
+packages
+dump_files
+.env
+postgres_data
+.idea
