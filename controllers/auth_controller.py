@@ -21,7 +21,7 @@ class AuthController:
         new_user = User(
             username=form.username.data,
         )
-        new_user.set_password(form.password.data)
+        new_user.check_password(form.password.data)
         db.session.add(new_user)
         db.session.commit()
 
