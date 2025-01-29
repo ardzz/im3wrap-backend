@@ -12,16 +12,13 @@ class AuthController:
 
         if not form.validate():
             return jsonify({"errors": form.errors}), 400
-
-        if User.query.filter_by(email=form.username.data).first():
-            return jsonify({"error": "Email already exists"}), 409
         if User.query.filter_by(username=form.username.data).first():
             return jsonify({"error": "Username already exists"}), 409
 
         new_user = User(
             username=form.username.data,
         )
-        new_user.check_password(form.password.data)
+        new_user.hash_password(form.password.data)
         db.session.add(new_user)
         db.session.commit()
 
