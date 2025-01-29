@@ -29,11 +29,11 @@ services:
 
   celery_worker:
     build: .
-    command: celery -A app.tasks.celery worker --loglevel=info --events
+    command: celery -A app.celery worker --loglevel=info --events
     volumes:
       - .:/app
     environment:
-      - DATABASE_URL=postgresql+psycopg2://myuser:mypassword@postgres:5432/im3wrap
+      - DATABASE_URL=postgresql+psycopg2://myuser:mypassword@db:5432/im3wrap
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
     depends_on:
@@ -42,7 +42,7 @@ services:
 
   flower:
     build: .
-    command: celery -A app.tasks.celery flower --port=5555
+    command: celery -A app.celery flower --port=5555
     volumes:
       - .:/app
     ports:
