@@ -1,45 +1,122 @@
-from services.im3_service import IM3Service
-from schemas.im3_schemas import VerifyOTPSchema
-from core.response import SuccessResponse
+from flask import request
+from flask_jwt_extended import get_jwt_identity
+from core.response import SuccessResponse, ErrorResponse
+from core.exceptions import ValidationError, AuthenticationError, NotFoundError
+from models.user import User
+from database import db
+from im3.repository.authentication import Authentication
+from im3.repository.profile import Profile
 from .base_controller import validate_json, get_current_user_id
 
 
 class IM3Controller:
     """IM3 integration controller"""
 
-    def __init__(self):
-        self.im3_service = IM3Service()
-
     def send_otp(self):
         """Send OTP to user's phone number"""
-        user_id = get_current_user_id()
-        result = self.im3_service.send_otp(user_id)
+        try:
+            user_id = get_current_user_id()
+            if not user_id:
+                raise AuthenticationError("Authentication required")
 
-        return SuccessResponse(
-            data=result,
-            message="OTP sent successfully"
-        ).to_response()
+            user = User.query.get(user_id)
+            if not user or not user.phone_number:
+                raise ValidationError("Phone number is required")
 
-    @validate_json(VerifyOTPSchema)
-    def verify_otp(self, validated_data: dict):
-        """Verify OTP code"""
-        user_id = get_current_user_id()
-        result = self.im3_service.verify_otp(
-            user_id=user_id,
-            otp_code=validated_data['code']
-        )
+            # Initialize IM3 authentication
+            auth = Authentication(user.phone_number, debug=False)
+            result = auth.send_otp()
 
-        return SuccessResponse(
-            data=result,
-            message="OTP verified successfully"
-        ).to_response()
+            if result.get('status') == 'success' or result.get('code') == '00':
+                # Store transaction ID for OTP verification
+                user.transid = result.get('transid')
+                db.session.commit()
+
+                return SuccessResponse(
+                    data={
+                        "transid": result.get('transid'),
+                        "message": "OTP sent successfully"
+                    },
+                    message="OTP sent to your phone number"
+                ).to_response()
+            else:
+                raise ValidationError(f"Failed to send OTP: {result.get('message', 'Unknown error')}")
+
+        except Exception as e:
+            if isinstance(e, (ValidationError, AuthenticationError)):
+                raise
+            raise ValidationError(f"Failed to send OTP: {str(e)}")
+
+    def verify_otp(self):
+        """Verify OTP and get IM3 token"""
+        try:
+            user_id = get_current_user_id()
+            if not user_id:
+                raise AuthenticationError("Authentication required")
+
+            user = User.query.get(user_id)
+            if not user or not user.phone_number:
+                raise ValidationError("Phone number is required")
+
+            if not user.transid:
+                raise ValidationError("OTP not sent. Please send OTP first.")
+
+            # Get OTP code from request
+            json_data = request.get_json()
+            if not json_data or 'otp' not in json_data:
+                raise ValidationError("OTP code is required")
+
+            otp_code = json_data['otp']
+
+            # Initialize IM3 authentication
+            auth = Authentication(user.phone_number, debug=False)
+            result = auth.verify_otp(user.transid, otp_code)
+
+            if result.get('status') == 'success' or result.get('code') == '00':
+                # Store the token ID
+                user.token_id = result.get('tokenid') or result.get('token_id')
+                user.transid = None  # Clear transaction ID
+                db.session.commit()
+
+                return SuccessResponse(
+                    data={
+                        "verified": True,
+                        "message": "OTP verified successfully"
+                    },
+                    message="IM3 account linked successfully"
+                ).to_response()
+            else:
+                raise ValidationError(f"OTP verification failed: {result.get('message', 'Invalid OTP')}")
+
+        except Exception as e:
+            if isinstance(e, (ValidationError, AuthenticationError)):
+                raise
+            raise ValidationError(f"Failed to verify OTP: {str(e)}")
 
     def get_profile(self):
-        """Get IM3 profile data"""
-        user_id = get_current_user_id()
-        profile = self.im3_service.get_im3_profile(user_id)
+        """Get IM3 profile information"""
+        try:
+            user_id = get_current_user_id()
+            if not user_id:
+                raise AuthenticationError("Authentication required")
 
-        return SuccessResponse(
-            data=profile,
-            message="IM3 profile retrieved successfully"
-        ).to_response()
+            user = User.query.get(user_id)
+            if not user or not user.token_id:
+                raise ValidationError("IM3 account not linked. Please verify OTP first.")
+
+            # Get IM3 profile
+            profile_service = Profile(user.token_id, debug=False)
+            result = profile_service.get_profile()
+
+            if result.get('status') == 'success' or result.get('code') == '00':
+                return SuccessResponse(
+                    data=result.get('data', {}),
+                    message="Profile retrieved successfully"
+                ).to_response()
+            else:
+                raise ValidationError(f"Failed to get profile: {result.get('message', 'Unknown error')}")
+
+        except Exception as e:
+            if isinstance(e, (ValidationError, AuthenticationError)):
+                raise
+            raise ValidationError(f"Failed to get profile: {str(e)}")

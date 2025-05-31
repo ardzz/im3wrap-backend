@@ -1,13 +1,9 @@
-from .auth_schemas import LoginSchema, RegistrationSchema
+from .auth_schemas import RegistrationSchema, LoginSchema
 from .user_schemas import UpdateUserSchema, ChangePasswordSchema
-from .im3_schemas import VerifyOTPSchema
-from .package_schemas import PurchasePackageSchema
 
 __all__ = [
-    'LoginSchema',
     'RegistrationSchema',
+    'LoginSchema',
     'UpdateUserSchema',
-    'ChangePasswordSchema',
-    'VerifyOTPSchema',
-    'PurchasePackageSchema'
+    'ChangePasswordSchema'
 ]

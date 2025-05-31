@@ -1,20 +1,31 @@
-from marshmallow import fields, validate
-from .base_schema import BaseSchema
+from marshmallow import Schema, fields, validate
 
-class UpdateUserSchema(BaseSchema):
-    """Update user profile schema"""
-    username = fields.Str(validate=validate.Length(min=3, max=50))
-    email = fields.Email()
-    phone_number = fields.Str(validate=validate.Regexp(r'^\d+$', error='Phone number must contain only digits'))
 
-class ChangePasswordSchema(BaseSchema):
-    """Change password schema"""
-    old_password = fields.Str(
-        required=True,
-        error_messages={'required': 'Current password is required'}
+class UpdateUserSchema(Schema):
+    """Schema for updating user profile"""
+    username = fields.Str(
+        required=False,
+        allow_none=True,
+        validate=validate.Regexp(
+            r'^[a-zA-Z0-9_.-]+$',
+            error="Username can only contain letters, numbers, underscores, dots and hyphens"
+        )
     )
+    email = fields.Email(required=False, allow_none=True)
+    phone_number = fields.Str(
+        required=False,
+        allow_none=True,
+        validate=validate.Regexp(
+            r'^[0-9+\-\s()]+$',
+            error="Invalid phone number format"
+        )
+    )
+
+
+class ChangePasswordSchema(Schema):
+    """Schema for changing user password"""
+    old_password = fields.Str(required=True)
     new_password = fields.Str(
         required=True,
-        validate=validate.Length(min=8),
-        error_messages={'required': 'New password is required'}
+        validate=validate.Length(min=6, max=128)
     )

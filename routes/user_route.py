@@ -12,6 +12,6 @@ def get_me():
 def update_me():
     return user_controller.update_me()
 
-@user_routes.route('/me/change-password', methods=['POST'])
+@user_routes.route('/change-password', methods=['POST'])
 def change_password():
     return user_controller.change_password()
