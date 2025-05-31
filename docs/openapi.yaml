@@ -1,93 +1,71 @@
 openapi: 3.0.3
 info:
   title: IM3Wrap Backend API
-  description: |
-    IM3Wrap Backend API provides endpoints for user management, IM3 authentication, 
-    and package purchase operations. This API allows users to register, authenticate 
-    with IM3 services, and purchase data packages.
-    
-    ## Features
-    - User registration and authentication
-    - IM3 OTP verification and profile management
-    - Package browsing and purchasing
-    - Transaction tracking and status monitoring
-    
-    ## Authentication
-    Most endpoints require JWT authentication. Include the token in the Authorization header:
-    ```
-    Authorization: Bearer <your_jwt_token>
-    ```
-  version: 2.0.0
+  description: Backend API for IM3Wrap - IM3 package management and purchase system
+  version: 1.0.0
   contact:
-    name: IM3Wrap Support
+    name: ardzz
     email: support@im3wrap.my.id
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
 
 servers:
-  - url: https://backend.im3wrap.my.id/api
-    description: Production server
-  - url: http://localhost:5000/api
+  - url: http://localhost:5000
     description: Development server
+  - url: https://backend.im3wrap.my.id
+    description: Production server
 
-tags:
-  - name: Authentication
-    description: User registration and login
-  - name: User Management
-    description: User profile and account management
-  - name: IM3 Integration
-    description: IM3 service authentication and profile
-  - name: Packages
-    description: Package browsing and purchasing
-  - name: Health
-    description: System health and status
+security:
+  - BearerAuth: []
 
 paths:
   # Authentication endpoints
-  /auth/register:
+  /api/auth/register:
     post:
       tags:
         - Authentication
       summary: Register a new user
-      description: Create a new user account with username and password
+      description: Create a new user account
+      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/RegistrationRequest'
-            example:
-              username: "john_doe"
-              password: "securepassword123"
+            examples:
+              basic:
+                summary: Basic registration
+                value:
+                  username: "john_doe"
+                  password: "mypassword123"
+              with_details:
+                summary: Registration with details
+                value:
+                  username: "john_doe"
+                  password: "mypassword123"
+                  email: "john@example.com"
+                  phone_number: "081234567890"
       responses:
         '201':
           description: User registered successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
-              example:
-                success: true
-                request_id: "req_123456789"
-                timestamp: "2025-05-31T09:44:01Z"
-                data:
-                  user_id: 1
-                  username: "john_doe"
-                  message: "User registered successfully"
-                message: "User registered successfully"
-                meta: {}
+                $ref: '#/components/schemas/AuthResponse'
         '400':
           $ref: '#/components/responses/ValidationError'
         '409':
           $ref: '#/components/responses/ConflictError'
 
-  /auth/login:
+  /api/auth/login:
     post:
       tags:
         - Authentication
       summary: Login user
-      description: Authenticate user and receive JWT access token
+      description: Authenticate user and return access token
+      security: []
       requestBody:
         required: true
         content:
@@ -96,71 +74,48 @@ paths:
               $ref: '#/components/schemas/LoginRequest'
             example:
               username: "john_doe"
-              password: "securepassword123"
+              password: "mypassword123"
       responses:
         '200':
           description: Login successful
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
-              example:
-                success: true
-                request_id: "req_123456789"
-                timestamp: "2025-05-31T09:44:01Z"
-                data:
-                  access_token: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
-                  user:
-                    id: 1
-                    username: "john_doe"
-                    email: null
-                  message: "Login successful"
-                message: "Login successful"
-                meta: {}
+                $ref: '#/components/schemas/AuthResponse'
         '400':
           $ref: '#/components/responses/ValidationError'
         '401':
-          $ref: '#/components/responses/UnauthorizedError'
+          $ref: '#/components/responses/AuthenticationError'
 
-  # User Management endpoints
-  /user/me:
+  # User endpoints
+  /api/user/me:
     get:
       tags:
-        - User Management
+        - User
       summary: Get current user profile
-      description: Retrieve the authenticated user's profile information
-      security:
-        - BearerAuth: []
+      description: Retrieve the current authenticated user's profile
       responses:
         '200':
           description: Profile retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
-              example:
-                success: true
-                request_id: "req_123456789"
-                timestamp: "2025-05-31T09:44:01Z"
-                data:
-                  id: 1
-                  username: "john_doe"
-                  email: "john@example.com"
-                  phone_number: "628123456789"
-                  created_at: "2025-05-31T09:00:00Z"
-                  updated_at: "2025-05-31T09:30:00Z"
-                message: "Profile retrieved successfully"
-                meta: {}
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserProfile'
         '401':
-          $ref: '#/components/responses/UnauthorizedError'
+          $ref: '#/components/responses/AuthenticationError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
 
     put:
       tags:
-        - User Management
-      summary: Update user profile
-      description: Update the authenticated user's profile information
-      security:
-        - BearerAuth: []
+        - User
+      summary: Update current user profile
+      description: Update the current authenticated user's profile
       requestBody:
         required: true
         content:
@@ -168,29 +123,33 @@ paths:
             schema:
               $ref: '#/components/schemas/UpdateUserRequest'
             example:
-              username: "john_doe_updated"
-              email: "john.updated@example.com"
-              phone_number: "628987654321"
+              email: "newemail@example.com"
+              phone_number: "081234567891"
       responses:
         '200':
           description: Profile updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserProfile'
         '400':
           $ref: '#/components/responses/ValidationError'
         '401':
-          $ref: '#/components/responses/UnauthorizedError'
+          $ref: '#/components/responses/AuthenticationError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
 
-  /user/me/change-password:
+  /api/user/change-password:
     post:
       tags:
-        - User Management
+        - User
       summary: Change user password
-      description: Change the authenticated user's password
-      security:
-        - BearerAuth: []
+      description: Change the current authenticated user's password
       requestBody:
         required: true
         content:
@@ -207,284 +166,260 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
-              example:
-                success: true
-                request_id: "req_123456789"
-                timestamp: "2025-05-31T09:44:01Z"
-                data:
-                  message: "Password updated successfully"
-                message: "Password changed successfully"
-                meta: {}
         '400':
           $ref: '#/components/responses/ValidationError'
         '401':
-          $ref: '#/components/responses/UnauthorizedError'
+          $ref: '#/components/responses/AuthenticationError'
 
-  # IM3 Integration endpoints
-  /im3/send-otp:
+  # IM3 endpoints
+  /api/im3/send-otp:
     get:
       tags:
-        - IM3 Integration
+        - IM3
       summary: Send OTP to user's phone
-      description: Send OTP verification code to the user's registered phone number
-      security:
-        - BearerAuth: []
+      description: Send OTP to the user's registered phone number for IM3 authentication
       responses:
         '200':
           description: OTP sent successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
-              example:
-                success: true
-                request_id: "req_123456789"
-                timestamp: "2025-05-31T09:44:01Z"
-                data:
-                  message: "OTP sent to your phone number"
-                message: "OTP sent successfully"
-                meta: {}
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          transid:
+                            type: string
+                            description: Transaction ID for OTP verification
+                          message:
+                            type: string
+                            example: "OTP sent successfully"
         '400':
           $ref: '#/components/responses/ValidationError'
         '401':
-          $ref: '#/components/responses/UnauthorizedError'
+          $ref: '#/components/responses/AuthenticationError'
 
-  /im3/verify-otp:
+  /api/im3/verify-otp:
     post:
       tags:
-        - IM3 Integration
-      summary: Verify OTP code
-      description: Verify the OTP code sent to user's phone number
-      security:
-        - BearerAuth: []
+        - IM3
+      summary: Verify OTP and link IM3 account
+      description: Verify the OTP code and link the IM3 account to the user
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/VerifyOTPRequest'
-            example:
-              code: "123456"
+              type: object
+              required:
+                - otp
+              properties:
+                otp:
+                  type: string
+                  description: OTP code received via SMS
+                  example: "123456"
       responses:
         '200':
           description: OTP verified successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
-              example:
-                success: true
-                request_id: "req_123456789"
-                timestamp: "2025-05-31T09:44:01Z"
-                data:
-                  message: "OTP verified successfully"
-                message: "OTP verified successfully"
-                meta: {}
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          verified:
+                            type: boolean
+                            example: true
+                          message:
+                            type: string
+                            example: "OTP verified successfully"
         '400':
           $ref: '#/components/responses/ValidationError'
         '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '422':
-          $ref: '#/components/responses/BusinessLogicError'
+          $ref: '#/components/responses/AuthenticationError'
 
-  /im3/profile:
+  /api/im3/profile:
     get:
       tags:
-        - IM3 Integration
-      summary: Get IM3 profile data
-      description: Retrieve user's IM3 profile information
-      security:
-        - BearerAuth: []
+        - IM3
+      summary: Get IM3 profile
+      description: Retrieve the user's IM3 profile information
       responses:
         '200':
-          description: IM3 profile retrieved successfully
+          description: Profile retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
-              example:
-                success: true
-                request_id: "req_123456789"
-                timestamp: "2025-05-31T09:44:01Z"
-                data:
-                  mob: "8123456789"
-                  name: "John Doe"
-                  balance: 50000
-                  plan: "Unlimited"
-                message: "IM3 profile retrieved successfully"
-                meta: {}
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/IM3Profile'
+        '400':
+          $ref: '#/components/responses/ValidationError'
         '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '422':
-          $ref: '#/components/responses/BusinessLogicError'
+          $ref: '#/components/responses/AuthenticationError'
 
   # Package endpoints
-  /packages/packages:
+  /api/packages/:
     get:
       tags:
         - Packages
-      summary: Get available packages
-      description: Retrieve list of available data packages
-      security:
-        - BearerAuth: []
+      summary: Get all available packages
+      description: Retrieve a list of all available IM3 packages
       responses:
         '200':
           description: Packages retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
-              example:
-                success: true
-                request_id: "req_123456789"
-                timestamp: "2025-05-31T09:44:01Z"
-                data:
-                  - id: 1
-                    pvr_code: "IM3001"
-                    keyword: "DATA5GB"
-                    discount_price: 45000
-                    normal_price: 50000
-                    package_name: "5GB Internet Package"
-                    created_at: "2025-05-31T09:00:00Z"
-                    updated_at: "2025-05-31T09:00:00Z"
-                message: "Packages retrieved successfully"
-                meta: {}
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Package'
+        '400':
+          $ref: '#/components/responses/ValidationError'
         '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '422':
-          $ref: '#/components/responses/BusinessLogicError'
+          $ref: '#/components/responses/AuthenticationError'
 
-  /packages/packages/purchase:
+  /api/packages/{package_id}/purchase:
     post:
       tags:
         - Packages
       summary: Purchase a package
-      description: Initiate the purchase of a data package
-      security:
-        - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PurchasePackageRequest'
-            example:
-              package_id: 1
+      description: Initiate the purchase of a specific package
+      parameters:
+        - name: package_id
+          in: path
+          required: true
+          description: ID of the package to purchase
+          schema:
+            type: integer
+            example: 1
       responses:
-        '200':
+        '202':
           description: Package purchase initiated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
-              example:
-                success: true
-                request_id: "req_123456789"
-                timestamp: "2025-05-31T09:44:01Z"
-                data:
-                  transaction_id: 1
-                  task_id: "task_abc123"
-                  package_detail:
-                    id: 1
-                    package_name: "5GB Internet Package"
-                    discount_price: 45000
-                  message: "Transaction is being processed"
-                  status: "PENDING"
-                message: "Package purchase initiated"
-                meta: {}
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          transaction_id:
+                            type: integer
+                            description: ID of the created transaction
+                            example: 123
+                          task_id:
+                            type: string
+                            description: Celery task ID for tracking
+                            example: "abc123-def456-ghi789"
+                          status:
+                            type: string
+                            enum: ["PROCESSING"]
+                            example: "PROCESSING"
+                          message:
+                            type: string
+                            example: "Purchase initiated. Check back for updates."
         '400':
           $ref: '#/components/responses/ValidationError'
         '401':
-          $ref: '#/components/responses/UnauthorizedError'
+          $ref: '#/components/responses/AuthenticationError'
         '404':
           $ref: '#/components/responses/NotFoundError'
         '422':
           $ref: '#/components/responses/BusinessLogicError'
 
-  /packages/transactions:
+  /api/packages/transactions:
     get:
       tags:
         - Packages
-      summary: Get user transactions
-      description: Retrieve the user's transaction history
-      security:
-        - BearerAuth: []
+      summary: Get user's transactions
+      description: Retrieve all transactions for the current user
       responses:
         '200':
           description: Transactions retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
-              example:
-                success: true
-                request_id: "req_123456789"
-                timestamp: "2025-05-31T09:44:01Z"
-                data:
-                  - id: 1
-                    user_id: 1
-                    package_id: 1
-                    status: "COMPLETED"
-                    qr_code: "data:image/png;base64,..."
-                    created_at: "2025-05-31T09:00:00Z"
-                    updated_at: "2025-05-31T09:30:00Z"
-                message: "Transactions retrieved successfully"
-                meta: {}
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          allOf:
+                            - $ref: '#/components/schemas/Transaction'
+                            - type: object
+                              properties:
+                                package:
+                                  $ref: '#/components/schemas/Package'
         '401':
-          $ref: '#/components/responses/UnauthorizedError'
+          $ref: '#/components/responses/AuthenticationError'
 
-  /packages/transactions/{transaction_id}:
+  /api/packages/transactions/{transaction_id}:
     get:
       tags:
         - Packages
-      summary: Get transaction status
-      description: Retrieve the status of a specific transaction
-      security:
-        - BearerAuth: []
+      summary: Get specific transaction
+      description: Retrieve details of a specific transaction
       parameters:
         - name: transaction_id
           in: path
           required: true
+          description: ID of the transaction to retrieve
           schema:
             type: integer
-          description: Transaction ID
-          example: 1
+            example: 123
       responses:
         '200':
-          description: Transaction status retrieved successfully
+          description: Transaction retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
-              example:
-                success: true
-                request_id: "req_123456789"
-                timestamp: "2025-05-31T09:44:01Z"
-                data:
-                  id: 1
-                  user_id: 1
-                  package_id: 1
-                  status: "PAYMENT_INITIATED"
-                  qr_code: "data:image/png;base64,..."
-                  created_at: "2025-05-31T09:00:00Z"
-                  updated_at: "2025-05-31T09:30:00Z"
-                message: "Transaction status retrieved successfully"
-                meta: {}
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: '#/components/schemas/Transaction'
+                          - type: object
+                            properties:
+                              package:
+                                $ref: '#/components/schemas/Package'
         '401':
-          $ref: '#/components/responses/UnauthorizedError'
+          $ref: '#/components/responses/AuthenticationError'
         '404':
           $ref: '#/components/responses/NotFoundError'
 
-  # Health endpoint
+  # Health check
   /health:
     get:
       tags:
-        - Health
+        - System
       summary: Health check
       description: Check the health status of the API
+      security: []
       responses:
         '200':
-          description: API is healthy
+          description: Service is healthy
           content:
             application/json:
               schema:
@@ -496,10 +431,7 @@ paths:
                   timestamp:
                     type: string
                     format: date-time
-                    example: "2025-05-31T09:44:01Z"
-                  version:
-                    type: string
-                    example: "2.0.0"
+                    example: "2025-05-31T12:05:20Z"
 
 components:
   securitySchemes:
@@ -507,6 +439,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+      description: JWT token obtained from login endpoint
 
   schemas:
     # Request schemas
@@ -519,14 +452,26 @@ components:
         username:
           type: string
           minLength: 3
-          maxLength: 50
-          description: Unique username for the account
+          maxLength: 80
+          pattern: '^[a-zA-Z0-9_]+$'
+          description: Username (letters, numbers, underscores only)
           example: "john_doe"
         password:
           type: string
-          minLength: 8
-          description: Password for the account
-          example: "securepassword123"
+          minLength: 6
+          maxLength: 128
+          description: Password
+          example: "mypassword123"
+        email:
+          type: string
+          format: email
+          description: Email address (optional)
+          example: "john@example.com"
+        phone_number:
+          type: string
+          pattern: '^[0-9+\-\s()]+$'
+          description: Phone number (optional)
+          example: "081234567890"
 
     LoginRequest:
       type: object
@@ -536,29 +481,26 @@ components:
       properties:
         username:
           type: string
-          description: Username or email
+          description: Username
           example: "john_doe"
         password:
           type: string
-          description: Account password
-          example: "securepassword123"
+          description: Password
+          example: "mypassword123"
 
     UpdateUserRequest:
       type: object
       properties:
-        username:
-          type: string
-          minLength: 3
-          maxLength: 50
-          example: "john_doe_updated"
         email:
           type: string
           format: email
-          example: "john@example.com"
+          description: Email address
+          example: "newemail@example.com"
         phone_number:
           type: string
-          pattern: '^\d+$'
-          example: "628123456789"
+          pattern: '^[0-9+\-\s()]+$'
+          description: Phone number
+          example: "081234567891"
 
     ChangePasswordRequest:
       type: object
@@ -569,31 +511,13 @@ components:
         old_password:
           type: string
           description: Current password
+          example: "oldpassword123"
         new_password:
           type: string
-          minLength: 8
+          minLength: 6
+          maxLength: 128
           description: New password
-
-    VerifyOTPRequest:
-      type: object
-      required:
-        - code
-      properties:
-        code:
-          type: string
-          pattern: '^\d{4,6}$'
-          description: OTP verification code
-          example: "123456"
-
-    PurchasePackageRequest:
-      type: object
-      required:
-        - package_id
-      properties:
-        package_id:
-          type: integer
-          description: ID of the package to purchase
-          example: 1
+          example: "newpassword456"
 
     # Response schemas
     SuccessResponse:
@@ -602,23 +526,13 @@ components:
         success:
           type: boolean
           example: true
-        request_id:
-          type: string
-          description: Unique request identifier
-          example: "req_123456789"
         timestamp:
           type: string
           format: date-time
-          example: "2025-05-31T09:44:01Z"
-        data:
-          type: object
-          description: Response data
+          example: "2025-05-31T12:05:20Z"
         message:
           type: string
-          description: Success message
-        meta:
-          type: object
-          description: Additional metadata
+          example: "Operation completed successfully"
 
     ErrorResponse:
       type: object
@@ -626,25 +540,158 @@ components:
         success:
           type: boolean
           example: false
-        request_id:
-          type: string
-          example: "req_123456789"
         timestamp:
           type: string
           format: date-time
-          example: "2025-05-31T09:44:01Z"
+          example: "2025-05-31T12:05:20Z"
         error:
           type: object
           properties:
             code:
               type: string
-              description: Error code
+              example: "VALIDATION_ERROR"
             message:
               type: string
-              description: Error message
+              example: "Validation failed"
             details:
               type: object
-              description: Additional error details
+              additionalProperties: true
+              example: {}
+
+    # Data schemas
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        username:
+          type: string
+          example: "john_doe"
+        email:
+          type: string
+          format: email
+          nullable: true
+          example: "john@example.com"
+        phone_number:
+          type: string
+          nullable: true
+          example: "081234567890"
+        token_id:
+          type: string
+          nullable: true
+          description: IM3 token ID
+          example: "abc123def456"
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-05-31T10:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-05-31T12:00:00Z"
+
+    AuthResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                user:
+                  $ref: '#/components/schemas/UserProfile'
+                access_token:
+                  type: string
+                  description: JWT access token
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    IM3Profile:
+      type: object
+      properties:
+        mob:
+          type: string
+          description: Mobile number
+          example: "81234567890"
+        name:
+          type: string
+          description: Account holder name
+          example: "John Doe"
+        balance:
+          type: number
+          description: Account balance
+          example: 50000
+        status:
+          type: string
+          description: Account status
+          example: "ACTIVE"
+
+    Package:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        pvr_code:
+          type: string
+          description: Package voucher code
+          example: "DATA_1GB_30D"
+        keyword:
+          type: string
+          description: Package keyword
+          example: "DATA1GB"
+        discount_price:
+          type: integer
+          description: Discounted price in rupiah
+          example: 25000
+        normal_price:
+          type: integer
+          description: Normal price in rupiah
+          example: 30000
+        package_name:
+          type: string
+          description: Package display name
+          example: "Data 1GB 30 Days"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-05-31T10:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-05-31T10:00:00Z"
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 123
+        user_id:
+          type: integer
+          example: 1
+        package_id:
+          type: integer
+          example: 1
+        status:
+          type: string
+          enum: ["PENDING", "PROCESSING", "SUCCESS", "FAILED"]
+          example: "SUCCESS"
+        qr_code:
+          type: string
+          nullable: true
+          description: QR code for payment (if applicable)
+          example: "data:image/png;base64,iVBORw0KGgoAAAANS..."
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-05-31T11:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-05-31T12:00:00Z"
 
   responses:
     ValidationError:
@@ -655,41 +702,38 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             success: false
-            request_id: "req_123456789"
-            timestamp: "2025-05-31T09:44:01Z"
+            timestamp: "2025-05-31T12:05:20Z"
             error:
               code: "VALIDATION_ERROR"
               message: "Validation failed"
               details:
                 username: ["Username is required"]
 
-    UnauthorizedError:
-      description: Authentication required
+    AuthenticationError:
+      description: Authentication error
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             success: false
-            request_id: "req_123456789"
-            timestamp: "2025-05-31T09:44:01Z"
+            timestamp: "2025-05-31T12:05:20Z"
             error:
               code: "AUTHENTICATION_ERROR"
-              message: "Authentication failed"
+              message: "Authentication required"
               details: {}
 
     ConflictError:
-      description: Resource conflict
+      description: Conflict error
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             success: false
-            request_id: "req_123456789"
-            timestamp: "2025-05-31T09:44:01Z"
+            timestamp: "2025-05-31T12:05:20Z"
             error:
-              code: "USERNAME_EXISTS"
+              code: "CONFLICT_ERROR"
               message: "Username already exists"
               details: {}
 
@@ -701,24 +745,34 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             success: false
-            request_id: "req_123456789"
-            timestamp: "2025-05-31T09:44:01Z"
+            timestamp: "2025-05-31T12:05:20Z"
             error:
-              code: "NOT_FOUND"
+              code: "NOT_FOUND_ERROR"
               message: "Resource not found"
               details: {}
 
     BusinessLogicError:
-      description: Business logic validation failed
+      description: Business logic error
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             success: false
-            request_id: "req_123456789"
-            timestamp: "2025-05-31T09:44:01Z"
+            timestamp: "2025-05-31T12:05:20Z"
             error:
               code: "BUSINESS_LOGIC_ERROR"
-              message: "User must be authenticated with IM3 first"
+              message: "IM3 account not linked. Please verify OTP first."
               details: {}
+
+tags:
+  - name: Authentication
+    description: User authentication operations
+  - name: User
+    description: User profile management
+  - name: IM3
+    description: IM3 integration operations
+  - name: Packages
+    description: Package management and purchase operations
+  - name: System
+    description: System health and monitoring

@@ -1,24 +1,20 @@
-import os
 import logging
+import os
+
+from celery import Celery
 from dotenv import load_dotenv
 from flask import Flask
 from flask_cors import CORS
-from celery import Celery
 from flask_jwt_extended import JWTManager
 from flask_migrate import Migrate
 
 from config import get_config
-from database import db
-from middleware.auth_middleware import auth_middleware
 from core.error_handlers import register_error_handlers
-from workers.celery_config import CELERY_CONFIG
+from database import db
 from docs.swagger_integration import setup_swagger_docs
 from health import health_bp
-
-# Import models to ensure they're registered
-from models.user import User
-from models.package import Package
-from models.transaction import Transaction
+from middleware.auth_middleware import auth_middleware
+from workers.celery_config import CELERY_CONFIG
 
 load_dotenv()
 
