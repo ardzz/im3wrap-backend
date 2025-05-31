@@ -1,50 +1,47 @@
-from flask import jsonify, request
-
-from database import db
-from models.user import User
+from services.user_service import UserService
+from schemas.user_schemas import UpdateUserSchema, ChangePasswordSchema
+from core.response import SuccessResponse
+from .base_controller import validate_json, get_current_user_id
 
 
 class UserController:
-    @staticmethod
-    def get_me():
-        get_user = User.query.filter_by(id=request.user_id).first()
-        return jsonify({
-            "id": get_user.id,
-            "username": get_user.username,
-            "email": get_user.email,
-        }), 200
+    """User management controller"""
 
-    @staticmethod
-    def update_me():
-        try:
-            me = User.query.filter_by(id=request.user_id).first()
-            me.username = request.json.get('username', me.username)
-            me.email = request.json.get('email', me.email)
-            me.phone_number = request.json.get('phone_number', me.phone_number)
+    def __init__(self):
+        self.user_service = UserService()
 
-            db.session.commit()
+    def get_me(self):
+        """Get current user profile"""
+        user_id = get_current_user_id()
+        profile = self.user_service.get_user_profile(user_id)
 
-            return jsonify({
-                "id": me.id,
-                "username": me.username,
-                "email": me.email,
-                "phone_number": me.phone_number,
-            }), 200
-        except Exception as e:
-            db.session.rollback()
-            return jsonify({"error": str(e)}), 400
+        return SuccessResponse(
+            data=profile,
+            message="Profile retrieved successfully"
+        ).to_response()
 
-    @staticmethod
-    def change_password():
-        try:
-            me = User.query.filter_by(id=request.user_id).first()
-            if not me.check_password(request.json.get('old_password')):
-                return jsonify({"error": "Old password is incorrect"}), 400
+    @validate_json(UpdateUserSchema)
+    def update_me(self, validated_data: dict):
+        """Update current user profile"""
+        user_id = get_current_user_id()
+        updated_profile = self.user_service.update_user_profile(user_id, **validated_data)
 
-            me.set_password(request.json.get('new_password'))
-            db.session.commit()
+        return SuccessResponse(
+            data=updated_profile,
+            message="Profile updated successfully"
+        ).to_response()
 
-            return jsonify({"message": "Password updated"}), 200
-        except Exception as e:
-            db.session.rollback()
-            return jsonify({"error": str(e)}), 400
+    @validate_json(ChangePasswordSchema)
+    def change_password(self, validated_data: dict):
+        """Change user password"""
+        user_id = get_current_user_id()
+        result = self.user_service.change_password(
+            user_id=user_id,
+            old_password=validated_data['old_password'],
+            new_password=validated_data['new_password']
+        )
+
+        return SuccessResponse(
+            data=result,
+            message="Password changed successfully"
+        ).to_response()

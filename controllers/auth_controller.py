@@ -1,39 +1,37 @@
-from flask import jsonify, request
-from flask_jwt_extended import create_access_token
-from database import db
-from forms.auth_form import RegistrationForm, LoginForm
-from models.user import User
+from core.response import SuccessResponse
+from schemas.auth_schemas import RegistrationSchema, LoginSchema
+from services.auth_service import AuthService
+from .base_controller import validate_json
 
 
 class AuthController:
-    @staticmethod
-    def register():
-        form = RegistrationForm(data=request.get_json())
+    """Authentication controller - thin layer over AuthService"""
 
-        if not form.validate():
-            return jsonify({"errors": form.errors}), 400
-        if User.query.filter_by(username=form.username.data).first():
-            return jsonify({"error": "Username already exists"}), 409
+    def __init__(self):
+        self.auth_service = AuthService()
 
-        new_user = User(
-            username=form.username.data,
+    @validate_json(RegistrationSchema)
+    def register(self, validated_data: dict):
+        """Register a new user"""
+        result = self.auth_service.register(
+            username=validated_data['username'],
+            password=validated_data['password']
         )
-        new_user.hash_password(form.password.data)
-        db.session.add(new_user)
-        db.session.commit()
 
-        return jsonify({"message": "User registered", "user_id": new_user.id}), 201
+        return SuccessResponse(
+            data=result,
+            message="User registered successfully"
+        ).to_response(201)
 
-    @staticmethod
-    def login():
-        form = LoginForm(data=request.get_json())
+    @validate_json(LoginSchema)
+    def login(self, validated_data: dict):
+        """Login user"""
+        result = self.auth_service.login(
+            username=validated_data['username'],
+            password=validated_data['password']
+        )
 
-        if not form.validate():
-            return jsonify({"errors": form.errors}), 400
-
-        user = User.query.filter_by(username=form.username.data).first()
-        if user and user.check_password(form.password.data):
-            access_token = create_access_token(identity=str(user.id), expires_delta=False)
-            return jsonify({"access_token": access_token}), 200
-
-        return jsonify({"error": "Invalid credentials"}), 401
+        return SuccessResponse(
+            data=result,
+            message="Login successful"
+        ).to_response()

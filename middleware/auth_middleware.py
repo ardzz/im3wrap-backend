@@ -8,7 +8,49 @@ def auth_middleware(exempt_routes=None):
         def check_authentication():
             # Skip authentication for exempt routes (e.g., login, register)
             # print("endpoint: ", request.endpoint)
-            if request.endpoint in (exempt_routes or []):
+
+            # Default exempt routes
+            default_exempt = [
+                'auth_routes.login',
+                'auth_routes.register',
+                'static',  # Static files
+                'health_check',  # Health check endpoint
+                'cors_test',  # CORS test endpoint
+            ]
+
+            # Add custom exempt routes
+            all_exempt_routes = default_exempt + (exempt_routes or [])
+
+            # Check if current endpoint should be exempted
+            if request.endpoint in all_exempt_routes:
+                return
+
+            # Exempt documentation routes
+            if request.path.startswith('/docs'):
+                return
+
+            if request.path.startswith('/static'):
+                return
+
+            if request.path.startswith('/api-docs'):
+                return
+
+            # Exempt Swagger UI static files and API spec
+            if request.path.startswith('/swaggerui'):
+                return
+
+            if request.path.startswith('/health'):
+                return
+
+            if request.path == '/static/openapi.yaml':
+                return
+
+            # Exempt favicon and other common static requests
+            if request.path in ['/favicon.ico', '/robots.txt']:
+                return
+
+            # Check for OPTIONS requests (CORS preflight)
+            if request.method == 'OPTIONS':
                 return
 
             # Check if a valid JWT exists in the request
@@ -19,7 +61,20 @@ def auth_middleware(exempt_routes=None):
                 # Store user info in request context (optional)
                 request.user_id = current_user_id
             except Exception as e:
-                return jsonify({"error": "Unauthorized", "message": str(e)}), 401
+                return jsonify({
+                    "success": False,
+                    "timestamp": "2025-05-31T10:48:51Z",
+                    "error": {
+                        "code": "AUTHENTICATION_ERROR",
+                        "message": "Authentication required",
+                        "details": {
+                            "endpoint": request.endpoint,
+                            "path": request.path,
+                            "method": request.method,
+                            "error": str(e)
+                        }
+                    }
+                }), 401
 
         return app
 

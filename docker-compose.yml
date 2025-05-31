@@ -5,6 +5,7 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    command: redis-server --appendonly yes
 
   flask_app:
     build: .
@@ -12,27 +13,41 @@ services:
     command: python app.py
     volumes:
       - .:/app
+      - ./logs:/app/logs
     ports:
       - "5000:5000"
     environment:
+      - FLASK_ENV=development
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DATABASE_URL=postgresql+psycopg2://myuser:mypassword@db:5432/im3wrap
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:8080,http://localhost:5173
+      - LOG_LEVEL=DEBUG
     labels:
       - traefik.enable=true
-      - traefik.http.routers.phpmyadmin.rule=Host(`backend.im3wrap.my.id`)
-      - traefik.http.routers.phpmyadmin.entrypoints=websecure
-      - traefik.http.routers.phpmyadmin.tls.certresolver=mytlschallenge
-      - traefik.http.services.phpmyadmin.loadbalancer.server.port=80
+      - traefik.http.routers.backend.rule=Host(`backend.im3wrap.my.id`)
+      - traefik.http.routers.backend.entrypoints=websecure
+      - traefik.http.routers.backend.tls.certresolver=mytlschallenge
+      - traefik.http.services.backend.loadbalancer.server.port=5000
+      # CORS headers for Traefik
+      - traefik.http.middlewares.cors-headers.headers.accesscontrolallowmethods=GET,POST,PUT,DELETE,OPTIONS
+      - traefik.http.middlewares.cors-headers.headers.accesscontrolallowheaders=Content-Type,Authorization,X-Requested-With
+      - traefik.http.middlewares.cors-headers.headers.accesscontrolalloworiginlist=https://im3wrap.my.id,https://app.im3wrap.my.id
+      - traefik.http.middlewares.cors-headers.headers.accesscontrolmaxage=86400
+      - traefik.http.routers.backend.middlewares=cors-headers
     depends_on:
       - redis
       - db
 
-  celery_worker:
+  # Celery worker for package purchases
+  celery_worker_packages:
     build: .
-    command: celery -A app.celery worker --loglevel=info --events
+    command: celery -A app.celery worker --loglevel=info --queues=package_purchases --concurrency=2 --hostname=worker_packages@%h
     volumes:
       - .:/app
+      - ./logs:/app/logs
     environment:
+      - FLASK_ENV=development
       - DATABASE_URL=postgresql+psycopg2://myuser:mypassword@db:5432/im3wrap
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
@@ -40,18 +55,68 @@ services:
       - redis
       - flask_app
 
+  # Celery worker for notifications
+  celery_worker_notifications:
+    build: .
+    command: celery -A app.celery worker --loglevel=info --queues=notifications,bulk_notifications --concurrency=4 --hostname=worker_notifications@%h
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+    environment:
+      - FLASK_ENV=development
+      - DATABASE_URL=postgresql+psycopg2://myuser:mypassword@db:5432/im3wrap
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+      - flask_app
+
+  # Celery worker for maintenance tasks
+  celery_worker_maintenance:
+    build: .
+    command: celery -A app.celery worker --loglevel=info --queues=maintenance --concurrency=1 --hostname=worker_maintenance@%h
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+    environment:
+      - FLASK_ENV=development
+      - DATABASE_URL=postgresql+psycopg2://myuser:mypassword@db:5432/im3wrap
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+      - flask_app
+
+  # Celery Beat scheduler
+  celery_beat:
+    build: .
+    command: celery -A app.celery beat --loglevel=info --schedule=/tmp/celerybeat-schedule
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+    environment:
+      - FLASK_ENV=development
+      - DATABASE_URL=postgresql+psycopg2://myuser:mypassword@db:5432/im3wrap
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+      - flask_app
+
+  # Flower monitoring
   flower:
     build: .
-    command: celery -A app.celery flower --port=5555
+    command: celery -A app.celery flower --port=5555 --broker=redis://redis:6379/0
     volumes:
       - .:/app
     ports:
       - "5555:5555"
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
     depends_on:
       - redis
-      - celery_worker
+      - celery_worker_packages
 
   db:
     image: postgres:14
@@ -60,9 +125,9 @@ services:
       POSTGRES_PASSWORD: mypassword
       POSTGRES_DB: im3wrap
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
-      - ./postgres_data:/var/lib/postgresql/data  # Persistent storage
+      - ./postgres_data:/var/lib/postgresql/data
 
 volumes:
   redis_data:
