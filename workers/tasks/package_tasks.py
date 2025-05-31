@@ -1,3 +1,4 @@
+import time
 import traceback
 
 from celery.utils.log import get_task_logger
@@ -59,7 +60,7 @@ def register_package_tasks(celery_app):
             logger.info("Checking package eligibility...")
             eligibility_result = im3_package.check_eligible()
 
-            if eligibility_result.get('code') != '00':
+            if eligibility_result.get('status') != '0':
                 error_msg = eligibility_result.get('message', 'Eligibility check failed')
                 logger.error(f"Eligibility check failed: {error_msg}")
                 transaction.status = "FAILED"
@@ -90,40 +91,75 @@ def register_package_tasks(celery_app):
             logger.info("Checking eligibility status...")
             status_result = im3_package.check_eligible_status(im3_transid)
 
-            if status_result.get('code') != '00':
-                error_msg = status_result.get('message', 'Status check failed')
-                logger.error(f"Status check failed: {error_msg}")
+            logger.info(f"Eligibility check passed. IM3 TransID: {im3_transid}")
+
+            logger.info("Checking eligibility status with retry mechanism...")
+            max_status_attempts = 3
+            status_delay = 1
+            status_success = False
+            status_result = None
+
+            for attempt in range(1, max_status_attempts + 1):
+                logger.info(f"Status check attempt {attempt}/{max_status_attempts}")
+
+                try:
+                    status_result = im3_package.check_eligible_status(im3_transid)
+
+                    # Log the full response for debugging
+                    logger.info(f"Status check response (attempt {attempt}): {status_result}")
+
+                    # Check if status is successful
+                    # Based on your condition, we want status != '0' and 'eligibility' NOT in data
+                    status_code = status_result.get('status', status_result.get('code'))
+                    status_data = status_result.get('data', {})
+
+                    # Success conditions (adjust these based on actual IM3 API responses)
+                    if status_code != '0' and 'eligibility' not in str(status_data).lower():
+                        logger.info(f"Status check successful on attempt {attempt}")
+                        status_success = True
+                        break
+                    else:
+                        logger.warning(
+                            f"Status check not ready on attempt {attempt}: status={status_code}, data={status_data}")
+
+                        if attempt < max_status_attempts:
+                            logger.info(f"Waiting {status_delay} seconds before next attempt...")
+                            time.sleep(status_delay)
+
+                except Exception as status_error:
+                    logger.warning(f"Status check attempt {attempt} failed with error: {str(status_error)}")
+
+                    if attempt < max_status_attempts:
+                        logger.info(f"Waiting {status_delay} seconds before retrying...")
+                        time.sleep(status_delay)
+                    else:
+                        logger.error(f"All {max_status_attempts} status check attempts failed")
+
+            # Check if status verification was successful
+            if not status_success:
+                error_msg = f"Status check failed after {max_status_attempts} attempts"
+                if status_result:
+                    error_msg += f": {status_result.get('message', 'Unknown error')}"
+
+                logger.error(error_msg)
                 transaction.status = "FAILED"
                 db.session.commit()
-                return {
+                """return {
                     'success': False,
                     'transaction_id': transaction_id,
                     'error': error_msg,
-                    'step': 'status_check'
-                }
+                    'step': 'status_check',
+                    'attempts_made': max_status_attempts,
+                    'last_response': status_result
+                }"""
 
-            logger.info("Status check passed")
+            logger.info(f"Status check passed after {attempt} attempt(s)")
 
             # Step 3: Initiate payment
             logger.info("Initiating payment...")
             payment_result = im3_package.initiate_payment(im3_transid)
 
-            if payment_result.get('code') == '00':
-                # Payment successful
-                transaction.status = "SUCCESS"
-                transaction.qr_code = payment_result.get('qr_code')
-                db.session.commit()
-
-                logger.info(f"Package purchase successful for transaction {transaction_id}")
-                return {
-                    'success': True,
-                    'transaction_id': transaction_id,
-                    'message': 'Package purchased successfully',
-                    'qr_code': payment_result.get('qr_code'),
-                    'im3_transid': im3_transid
-                }
-            else:
-                # Payment failed
+            if payment_result.get('status') != '0':
                 error_msg = payment_result.get('message', 'Payment initiation failed')
                 logger.error(f"Payment failed: {error_msg}")
                 transaction.status = "FAILED"
@@ -134,6 +170,22 @@ def register_package_tasks(celery_app):
                     'error': error_msg,
                     'step': 'payment'
                 }
+            else:
+                # Payment successful
+                logger.info(payment_result)
+                transaction.status = "SUCCESS"
+                transaction.qr_code = payment_result['data']['SendPaymentResp']['actionData']
+                db.session.commit()
+
+                logger.info(f"Package purchase successful for transaction {transaction_id}")
+                return {
+                    'success': True,
+                    'transaction_id': transaction_id,
+                    'message': 'Package purchased successfully',
+                    'qr_code': payment_result['data']['SendPaymentResp']['actionData'],
+                    'im3_transid': im3_transid
+                }
+
 
         except Exception as e:
             logger.error(f"Package purchase failed for transaction {transaction_id}: {str(e)}")
