@@ -1,14 +1,13 @@
 from flask import request
-from flask_jwt_extended import get_jwt_identity
 
 from core.error_handlers import logger
-from core.response import SuccessResponse, ErrorResponse
-from core.exceptions import ValidationError, AuthenticationError, NotFoundError
-from models.user import User
+from core.exceptions import ValidationError, AuthenticationError
+from core.response import SuccessResponse
 from database import db
 from im3.repository.authentication import Authentication
 from im3.repository.profile import Profile
-from .base_controller import validate_json, get_current_user_id
+from models.user import User
+from .base_controller import get_current_user_id
 
 
 class IM3Controller:

@@ -4,6 +4,7 @@ from controllers.package_controller import PackageController
 package_routes = Blueprint('package_routes', __name__)
 package_controller = PackageController()
 
+@package_routes.route('/packages', methods=['GET'])
 @package_routes.route('/', methods=['GET'])
 def get_packages():
     return package_controller.get_packages()
