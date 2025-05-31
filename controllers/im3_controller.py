@@ -64,10 +64,10 @@ class IM3Controller:
 
             # Get OTP code from request
             json_data = request.get_json()
-            if not json_data or 'code' not in json_data:
+            if not json_data or 'otp' not in json_data:
                 raise ValidationError("OTP code is required")
 
-            otp_code = json_data['code']
+            otp_code = json_data['otp']
 
             # Initialize IM3 authentication
             auth = Authentication(user.phone_number, debug=False)
@@ -116,6 +116,8 @@ class IM3Controller:
                     message="Profile retrieved successfully"
                 ).to_response()
             else:
+                user.token_id = None
+                db.session.commit()
                 raise ValidationError(f"Failed to get profile: {result.get('message', 'Unknown error')}")
 
         except Exception as e:

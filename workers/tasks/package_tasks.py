@@ -94,8 +94,8 @@ def register_package_tasks(celery_app):
             logger.info(f"Eligibility check passed. IM3 TransID: {im3_transid}")
 
             logger.info("Checking eligibility status with retry mechanism...")
-            max_status_attempts = 3
-            status_delay = 1
+            max_status_attempts = 5
+            status_delay = 3
             status_success = False
             status_result = None
 
