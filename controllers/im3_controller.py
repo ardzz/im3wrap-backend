@@ -65,18 +65,19 @@ class IM3Controller:
 
             # Get OTP code from request
             json_data = request.get_json()
-            if not json_data or 'otp' not in json_data:
+            if not json_data or 'code' not in json_data:
                 raise ValidationError("OTP code is required")
 
-            otp_code = json_data['otp']
+            otp_code = json_data['code']
 
             # Initialize IM3 authentication
             auth = Authentication(user.phone_number, debug=False)
             result = auth.verify_otp(user.transid, otp_code)
 
-            if result.get('status') == 'success' or result.get('code') == '00':
+            if result.get('message') == 'Success' or result.get('code') == '10014':
                 # Store the token ID
-                user.token_id = result.get('tokenid') or result.get('token_id')
+                logger.info(f"OTP verified successfully for user {user_id}: {result}")
+                user.token_id = result.get('data')['tokenid']
                 user.transid = None  # Clear transaction ID
                 db.session.commit()
 
@@ -110,7 +111,7 @@ class IM3Controller:
             profile_service = Profile(user.token_id, debug=False)
             result = profile_service.get_profile()
 
-            if result.get('status') == 'success' or result.get('code') == '00':
+            if result.get('message') == 'PROFILE_GET_USER_SUCCESS' or result.get('code') == '00':
                 return SuccessResponse(
                     data=result.get('data', {}),
                     message="Profile retrieved successfully"
