@@ -1,5 +1,7 @@
 from flask import request
 from flask_jwt_extended import get_jwt_identity
+
+from core.error_handlers import logger
 from core.response import SuccessResponse, ErrorResponse
 from core.exceptions import ValidationError, AuthenticationError, NotFoundError
 from models.user import User
@@ -27,7 +29,7 @@ class IM3Controller:
             auth = Authentication(user.phone_number, debug=False)
             result = auth.send_otp()
 
-            if result.get('status') == 'success' or result.get('code') == '00':
+            if result.get('status') == '0' or result.get('code') == '10006' or 'A code was sent to your mobile number XXX' in result.get('message'):
                 # Store transaction ID for OTP verification
                 user.transid = result.get('transid')
                 db.session.commit()
