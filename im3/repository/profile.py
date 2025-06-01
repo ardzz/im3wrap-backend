@@ -7,3 +7,6 @@ class Profile:
 
     def get_profile(self):
         return self.api_service_instance.send_request("api/v2/profile/get", {})
+
+    def get_dashboard(self):
+        return self.api_service_instance.send_request("api/v2/dashboard/get/v4", {})
